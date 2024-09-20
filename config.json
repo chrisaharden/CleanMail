@@ -2,6 +2,6 @@
     "email_address": "your_email@example.com",
     "password": "your_email_password",
     "imap_server": "imap.example.com",
-    "imap_port": 993
+    "imap_port": 993,
     "ANTHROPIC_API_KEY":""
 }
