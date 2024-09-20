@@ -163,4 +163,4 @@ cython_debug/
 #.idea/
 
 #Specific Files
-ANTHROPIC_API_KEY_CHRIS_HARDEN.txt
+config.json
