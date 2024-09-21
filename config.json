@@ -3,5 +3,13 @@
     "password": "your_email_password",
     "imap_server": "imap.example.com",
     "imap_port": 993,
-    "ANTHROPIC_API_KEY":""
+    "ANTHROPIC_API_KEY": "your_anthropic_api_key_here",
+    "whitelist": [
+        "friend@example.com",
+        "coworker@company.com"
+    ],
+    "blacklist": [
+        "spammer@spam.com",
+        "unwanted@advertiser.com"
+    ]
 }

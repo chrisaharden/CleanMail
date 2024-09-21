@@ -42,11 +42,14 @@ def is_spam(email_content, api_key):
         "anthropic-version": "2023-06-01"
     }
 
+    # Limit email content to 500 characters
+    limited_content = email_content[:500]
+
     data = {
         "model": "claude-3-opus-20240229",
         "max_tokens": 1000,
         "messages": [
-            {"role": "user", "content": f"Is the following email spam? Only respond with 'yes' or 'no'. Here's the email: {email_content}"}
+            {"role": "user", "content": f"Is the following email spam? Only respond with 'yes' or 'no'. Here's the first 500 characters of the email: {limited_content}"}
         ]
     }
 
@@ -74,6 +77,8 @@ def is_spam(email_content, api_key):
 def process_emails(config, api_key):
     mail = imaplib.IMAP4_SSL(config['imap_server'], config['imap_port'])
     spam_count = 0
+    whitelist = config.get('whitelist', [])
+    blacklist = config.get('blacklist', [])
     
     try:
         mail.login(config['email_address'], config['password'])
@@ -90,17 +95,37 @@ def process_emails(config, api_key):
                     subject = decode_email_subject(email_message["Subject"])
                     sender = email_message["From"]
                     
-                    content = get_email_content(email_message)
-                    
                     print(f"Processing email: {subject}")
+                    print(f"From: {sender}")
+                    
+                    # Check whitelist
+                    if any(addr in sender for addr in whitelist):
+                        print(f"Whitelisted sender, skipping: {sender}")
+                        continue
+                    
+                    # Check blacklist
+                    if any(addr in sender for addr in blacklist):
+                        print(f"Blacklisted sender, moving to Junk: {sender}")
+                        try:
+                            mail.copy(num, 'Junk')
+                            mail.store(num, '+FLAGS', '\\Deleted')
+                            spam_count += 1
+                        except Exception as e:
+                            print(f"Error moving email to Junk: {str(e)}")
+                        continue
+                    
+                    content = get_email_content(email_message)
                     print(f"Content length: {len(content)} characters")
                     
                     if content:
                         if is_spam(content, api_key):
                             print(f"Moving to Junk: {subject}")
-                            #HARDEN mail.copy(num, 'Junk')
-                            #HARDEN mail.store(num, '+FLAGS', '\\Deleted')
-                            spam_count += 1
+                            try:
+                                mail.copy(num, 'Junk')
+                                mail.store(num, '+FLAGS', '\\Deleted')
+                                spam_count += 1
+                            except Exception as e:
+                                print(f"Error moving email to Junk: {str(e)}")
                         else:
                             print(f"Not spam: {subject}")
                     else:
@@ -110,6 +135,8 @@ def process_emails(config, api_key):
         
         mail.expunge()
     
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
     finally:
         mail.close()
         mail.logout()
@@ -120,6 +147,6 @@ if __name__ == "__main__":
     config = read_config('config.json')
     api_key = config.get('ANTHROPIC_API_KEY')
     if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY not found in configimap.json")
+        raise ValueError("ANTHROPIC_API_KEY not found in config.json")
     total_spam = process_emails(config, api_key)
     print(f"Total emails moved to Junk folder: {total_spam}")
