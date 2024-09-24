@@ -79,6 +79,7 @@ def process_emails(config, api_key):
     spam_count = 0
     whitelist = config.get('whitelist', [])
     blacklist = config.get('blacklist', [])
+    only_gather_metrics = config.get('OnlyGatherMetrics', False)
     
     try:
         mail.login(config['email_address'], config['password'])
@@ -105,13 +106,14 @@ def process_emails(config, api_key):
                     
                     # Check blacklist
                     if any(addr in sender for addr in blacklist):
-                        print(f"Blacklisted sender, moving to Junk: {sender}")
-                        try:
-                            mail.copy(num, 'Junk')
-                            mail.store(num, '+FLAGS', '\\Deleted')
-                            spam_count += 1
-                        except Exception as e:
-                            print(f"Error moving email to Junk: {str(e)}")
+                        print(f"Blacklisted sender, {'would be moved' if only_gather_metrics else 'moving'} to Junk: {sender}")
+                        if not only_gather_metrics:
+                            try:
+                                mail.copy(num, 'Junk')
+                                mail.store(num, '+FLAGS', '\\Deleted')
+                            except Exception as e:
+                                print(f"Error moving email to Junk: {str(e)}")
+                        spam_count += 1
                         continue
                     
                     content = get_email_content(email_message)
@@ -119,21 +121,23 @@ def process_emails(config, api_key):
                     
                     if content:
                         if is_spam(content, api_key):
-                            print(f"Moving to Junk: {subject}")
-                            try:
-                                mail.copy(num, 'Junk')
-                                mail.store(num, '+FLAGS', '\\Deleted')
-                                spam_count += 1
-                            except Exception as e:
-                                print(f"Error moving email to Junk: {str(e)}")
+                            print(f"{'Would be moved' if only_gather_metrics else 'Moving'} to Junk: {subject}")
+                            if not only_gather_metrics:
+                                try:
+                                    mail.copy(num, 'Junk')
+                                    mail.store(num, '+FLAGS', '\\Deleted')
+                                except Exception as e:
+                                    print(f"Error moving email to Junk: {str(e)}")
+                            spam_count += 1
                         else:
                             print(f"Not spam: {subject}")
                     else:
                         print(f"Warning: Empty content for email: {subject}")
                     
-                    time.sleep(2)
+                    time.sleep(1) #throttle
         
-        mail.expunge()
+        if not only_gather_metrics:
+            mail.expunge()
     
     except Exception as e:
         print(f"An error occurred: {str(e)}")
@@ -149,4 +153,4 @@ if __name__ == "__main__":
     if not api_key:
         raise ValueError("ANTHROPIC_API_KEY not found in config.json")
     total_spam = process_emails(config, api_key)
-    print(f"Total emails moved to Junk folder: {total_spam}")
+    print(f"Total {'potential' if config.get('OnlyGatherMetrics', False) else ''} emails {'that would be' if config.get('OnlyGatherMetrics', False) else ''} moved to Junk folder: {total_spam}")

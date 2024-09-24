@@ -11,5 +11,6 @@
     "blacklist": [
         "spammer@spam.com",
         "unwanted@advertiser.com"
-    ]
+    ],
+    "OnlyGatherMetrics": true
 }
