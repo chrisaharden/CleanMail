@@ -96,17 +96,16 @@ def process_emails(config, api_key):
                     subject = decode_email_subject(email_message["Subject"])
                     sender = email_message["From"]
                     
-                    print(f"Processing email: {subject}")
-                    print(f"From: {sender}")
+                    #print(f"Mail: {sender}: {subject}")
                     
                     # Check whitelist
                     if any(addr in sender for addr in whitelist):
-                        print(f"Whitelisted sender, skipping: {sender}")
+                        print(f"WHITE:\t{sender}:\t{subject}")
                         continue
                     
                     # Check blacklist
                     if any(addr in sender for addr in blacklist):
-                        print(f"Blacklisted sender, {'would be moved' if only_gather_metrics else 'moving'} to Junk: {sender}")
+                        print(f"BLACK:\t{sender}:\t{subject}")
                         if not only_gather_metrics:
                             try:
                                 mail.copy(num, 'Junk')
@@ -117,11 +116,10 @@ def process_emails(config, api_key):
                         continue
                     
                     content = get_email_content(email_message)
-                    print(f"Content length: {len(content)} characters")
                     
                     if content:
                         if is_spam(content, api_key):
-                            print(f"{'Would be moved' if only_gather_metrics else 'Moving'} to Junk: {subject}")
+                            print(f"SPAM:\t{sender}:\t{subject}")
                             if not only_gather_metrics:
                                 try:
                                     mail.copy(num, 'Junk')
@@ -130,11 +128,11 @@ def process_emails(config, api_key):
                                     print(f"Error moving email to Junk: {str(e)}")
                             spam_count += 1
                         else:
-                            print(f"Not spam: {subject}")
+                            print(f"FINE:\t{sender}:\t{subject}")
                     else:
-                        print(f"Warning: Empty content for email: {subject}")
+                        print(f"EMPTY:\t{sender}:\t{subject}")
                     
-                    time.sleep(1) #throttle
+                    time.sleep(.25) #throttle
         
         if not only_gather_metrics:
             mail.expunge()
