@@ -12,5 +12,7 @@
         "spammer@spam.com",
         "unwanted@advertiser.com"
     ],
-    "OnlyGatherMetrics": true
+    "OnlyGatherMetrics": true,
+    "MetricsCSVFile": "metrics.csv",
+    "MetricsMaxEmailCount": 10
 }

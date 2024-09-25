@@ -4,6 +4,7 @@ import email
 from email.header import decode_header
 import requests
 import time
+import csv
 
 def read_config(file_path):
     with open(file_path, 'r') as file:
@@ -80,6 +81,11 @@ def process_emails(config, api_key):
     whitelist = config.get('whitelist', [])
     blacklist = config.get('blacklist', [])
     only_gather_metrics = config.get('OnlyGatherMetrics', False)
+    csv_file = config.get('MetricsCSVFile', './output/metrics.csv')
+    max_email_count = config.get('MetricsMaxEmailCount', float('inf'))
+    
+    metrics = []
+    processed_email_count = 0
     
     try:
         mail.login(config['email_address'], config['password'])
@@ -88,6 +94,10 @@ def process_emails(config, api_key):
         _, message_numbers = mail.search(None, 'ALL')
         
         for num in message_numbers[0].split():
+            if processed_email_count >= max_email_count:
+                print(f"Reached maximum email count of {max_email_count}. Stopping processing.")
+                break
+            
             _, msg = mail.fetch(num, '(RFC822)')
             
             for response in msg:
@@ -96,16 +106,17 @@ def process_emails(config, api_key):
                     subject = decode_email_subject(email_message["Subject"])
                     sender = email_message["From"]
                     
-                    #print(f"Mail: {sender}: {subject}")
+                    status = ""
                     
                     # Check whitelist
                     if any(addr in sender for addr in whitelist):
                         print(f"WHITE:\t{sender}:\t{subject}")
-                        continue
-                    
+                        status = "WHITE"
+                        
                     # Check blacklist
-                    if any(addr in sender for addr in blacklist):
+                    elif any(addr in sender for addr in blacklist):
                         print(f"BLACK:\t{sender}:\t{subject}")
+                        status = "BLACK"
                         if not only_gather_metrics:
                             try:
                                 mail.copy(num, 'Junk')
@@ -113,26 +124,37 @@ def process_emails(config, api_key):
                             except Exception as e:
                                 print(f"Error moving email to Junk: {str(e)}")
                         spam_count += 1
-                        continue
                     
-                    content = get_email_content(email_message)
-                    
-                    if content:
-                        if is_spam(content, api_key):
-                            print(f"SPAM:\t{sender}:\t{subject}")
-                            if not only_gather_metrics:
-                                try:
-                                    mail.copy(num, 'Junk')
-                                    mail.store(num, '+FLAGS', '\\Deleted')
-                                except Exception as e:
-                                    print(f"Error moving email to Junk: {str(e)}")
-                            spam_count += 1
-                        else:
-                            print(f"FINE:\t{sender}:\t{subject}")
                     else:
-                        print(f"EMPTY:\t{sender}:\t{subject}")
+                        content = get_email_content(email_message)
+                        
+                        if content:
+                            if is_spam(content, api_key):
+                                print(f"SPAM:\t{sender}:\t{subject}")
+                                status = "SPAM"
+                                if not only_gather_metrics:
+                                    try:
+                                        mail.copy(num, 'Junk')
+                                        mail.store(num, '+FLAGS', '\\Deleted')
+                                    except Exception as e:
+                                        print(f"Error moving email to Junk: {str(e)}")
+                                spam_count += 1
+                            else:
+                                print(f"FINE:\t{sender}:\t{subject}")
+                                status = "FINE"
+                        else:
+                            print(f"EMPTY:\t{sender}:\t{subject}")
+                            status = "EMPTY"
                     
-                    time.sleep(.25) #throttle
+                    if only_gather_metrics:
+                        metrics.append([status, sender, subject])
+                    
+                    processed_email_count += 1
+                    #time.sleep(1/10) #throttle in seconds. 1/10 says process a max of 10 emails/second
+            
+            if processed_email_count >= max_email_count:
+                print(f"DONE:\t{max_email_count} email processed.")
+                break
         
         if not only_gather_metrics:
             mail.expunge()
@@ -143,12 +165,20 @@ def process_emails(config, api_key):
         mail.close()
         mail.logout()
     
-    return spam_count
+    if only_gather_metrics and metrics:
+        with open(csv_file, 'w', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            writer.writerow(['Status', 'Sender', 'Subject'])
+            writer.writerows(metrics)
+        print(f"Metrics saved to {csv_file}")
+    
+    return spam_count, processed_email_count
 
 if __name__ == "__main__":
     config = read_config('config.json')
     api_key = config.get('ANTHROPIC_API_KEY')
     if not api_key:
         raise ValueError("ANTHROPIC_API_KEY not found in config.json")
-    total_spam = process_emails(config, api_key)
+    total_spam, total_processed = process_emails(config, api_key)
+    print(f"Total emails processed: {total_processed}")
     print(f"Total {'potential' if config.get('OnlyGatherMetrics', False) else ''} emails {'that would be' if config.get('OnlyGatherMetrics', False) else ''} moved to Junk folder: {total_spam}")
