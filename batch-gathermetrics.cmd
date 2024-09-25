@@ -7,6 +7,8 @@ python main.py config-3.5-Sonnet.json
 
 REM Run this script to compare the results against metrics-groundtruth.csv to see which
 REM model most-closely detects SPAM according to your hand-edited groundtruth file. 
+print Update your metrics-groundtruth.csv first and then press enter to continue
+pause 
 cd output
 python analyse_metrics.py > metrics_results.txt
 cd ..
