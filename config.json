@@ -4,6 +4,7 @@
     "imap_server": "imap.example.com",
     "imap_port": 993,
     "ANTHROPIC_API_KEY": "your_anthropic_api_key_here",
+    "AIModel": "claude-3-opus-20240229",
     "whitelist": [
         "friend@example.com",
         "coworker@company.com"
@@ -14,5 +15,5 @@
     ],
     "OnlyGatherMetrics": true,
     "MetricsCSVFile": "metrics.csv",
-    "MetricsMaxEmailCount": 10
+    "MetricsMaxEmailCount": 5
 }

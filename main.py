@@ -34,7 +34,7 @@ def get_email_content(email_message):
     
     return content.strip()
 
-def is_spam(email_content, api_key):
+def is_spam(email_content, api_key, model):
     API_ENDPOINT = "https://api.anthropic.com/v1/messages"
 
     headers = {
@@ -47,7 +47,7 @@ def is_spam(email_content, api_key):
     limited_content = email_content[:500]
 
     data = {
-        "model": "claude-3-opus-20240229",
+        "model": model,
         "max_tokens": 1000,
         "messages": [
             {"role": "user", "content": f"Is the following email spam? Only respond with 'yes' or 'no'. Here's the first 500 characters of the email: {limited_content}"}
@@ -81,8 +81,9 @@ def process_emails(config, api_key):
     whitelist = config.get('whitelist', [])
     blacklist = config.get('blacklist', [])
     only_gather_metrics = config.get('OnlyGatherMetrics', False)
-    csv_file = config.get('MetricsCSVFile', './output/metrics.csv')
+    csv_file = "./output/" + config.get('MetricsCSVFile', 'metrics.csv')
     max_email_count = config.get('MetricsMaxEmailCount', float('inf'))
+    model = config.get('AIModel', 'claude-3-opus-20240229')
     
     metrics = []
     processed_email_count = 0
@@ -129,7 +130,7 @@ def process_emails(config, api_key):
                         content = get_email_content(email_message)
                         
                         if content:
-                            if is_spam(content, api_key):
+                            if is_spam(content, api_key, model):
                                 print(f"SPAM:\t{sender}:\t{subject}")
                                 status = "SPAM"
                                 if not only_gather_metrics:
