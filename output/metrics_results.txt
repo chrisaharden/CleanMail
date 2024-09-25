@@ -1,0 +1,41 @@
+Accuracy Analysis:
+------------------
+
+Haiku Model:
+Accuracy: 20.00%
+Precision: 50.00%
+Recall: 33.33%
+F1 Score: 40.00%
+
+Confusion Matrix:
+True Positives (SPAM correctly identified): 1
+False Positives (FINE incorrectly marked as SPAM): 1
+True Negatives (FINE correctly identified): 0
+False Negatives (SPAM incorrectly marked as FINE): 2
+
+Opus Model:
+Accuracy: 0.00%
+Precision: 0.00%
+Recall: 0.00%
+F1 Score: 0.00%
+
+Confusion Matrix:
+True Positives (SPAM correctly identified): 0
+False Positives (FINE incorrectly marked as SPAM): 1
+True Negatives (FINE correctly identified): 0
+False Negatives (SPAM incorrectly marked as FINE): 3
+
+Sonnet Model:
+Accuracy: 0.00%
+Precision: 0.00%
+Recall: 0.00%
+F1 Score: 0.00%
+
+Confusion Matrix:
+True Positives (SPAM correctly identified): 0
+False Positives (FINE incorrectly marked as SPAM): 1
+True Negatives (FINE correctly identified): 0
+False Negatives (SPAM incorrectly marked as FINE): 3
+
+Conclusion:
+The Haiku model appears to be the most accurate in predicting spam emails.
