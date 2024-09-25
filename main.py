@@ -5,6 +5,7 @@ from email.header import decode_header
 import requests
 import time
 import csv
+import sys
 
 def read_config(file_path):
     with open(file_path, 'r') as file:
@@ -176,10 +177,25 @@ def process_emails(config, api_key):
     return spam_count, processed_email_count
 
 if __name__ == "__main__":
-    config = read_config('config.json')
+    if len(sys.argv) < 2:
+        print("Usage: python main.py <config_file_path>")
+        sys.exit(1)
+
+    config_file_path = sys.argv[1]
+    try:
+        config = read_config(config_file_path)
+    except FileNotFoundError:
+        print(f"Error: Config file '{config_file_path}' not found.")
+        sys.exit(1)
+    except json.JSONDecodeError:
+        print(f"Error: Invalid JSON in config file '{config_file_path}'.")
+        sys.exit(1)
+
     api_key = config.get('ANTHROPIC_API_KEY')
     if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY not found in config.json")
+        print("Error: ANTHROPIC_API_KEY not found in config file.")
+        sys.exit(1)
+
     total_spam, total_processed = process_emails(config, api_key)
     print(f"Total emails processed: {total_processed}")
     print(f"Total {'potential' if config.get('OnlyGatherMetrics', False) else ''} emails {'that would be' if config.get('OnlyGatherMetrics', False) else ''} moved to Junk folder: {total_spam}")

@@ -164,3 +164,4 @@ cython_debug/
 
 #Specific Files
 config.json
+config-Opus.json
