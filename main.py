@@ -60,7 +60,7 @@ def is_spam(email_content, api_key, model):
         response.raise_for_status()
         
         ai_response = response.json()['content'][0]['text'].strip().lower()
-        if ai_response not in ['yes', 'no']:
+        if ai_response not in ['yes', 'yes.','no', 'no.']:
             print(f"Unexpected AI response: {ai_response}")
             return False
         return ai_response == 'yes'
