@@ -1,0 +1,41 @@
+Accuracy Analysis:
+------------------
+
+Haiku Model:
+Accuracy: 68.54%
+Precision: 87.76%
+Recall: 61.90%
+F1 Score: 72.60%
+
+Confusion Matrix:
+True Positives (SPAM correctly identified): 208
+False Positives (FINE incorrectly marked as SPAM): 29
+True Negatives (FINE correctly identified): 65
+False Negatives (SPAM incorrectly marked as FINE): 128
+
+Opus Model:
+Accuracy: 77.15%
+Precision: 91.42%
+Recall: 72.92%
+F1 Score: 81.13%
+
+Confusion Matrix:
+True Positives (SPAM correctly identified): 245
+False Positives (FINE incorrectly marked as SPAM): 23
+True Negatives (FINE correctly identified): 71
+False Negatives (SPAM incorrectly marked as FINE): 91
+
+Sonnet Model:
+Accuracy: 46.69%
+Precision: 93.75%
+Recall: 22.32%
+F1 Score: 36.06%
+
+Confusion Matrix:
+True Positives (SPAM correctly identified): 75
+False Positives (FINE incorrectly marked as SPAM): 5
+True Negatives (FINE correctly identified): 89
+False Negatives (SPAM incorrectly marked as FINE): 261
+
+Conclusion:
+The Opus model appears to be the most accurate in predicting spam emails.
