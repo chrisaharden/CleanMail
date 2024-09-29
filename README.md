@@ -1,4 +1,5 @@
 # Email Spam Detection with AI
+![Email Spam Detection](./docs/CleanMailsSplashImage.webp)
 
 This project implements an AI-powered email spam detection system using Claude models from Anthropic. It processes emails from an IMAP server, applies whitelist and blacklist filters, and uses AI to classify remaining emails as spam or not.
 
