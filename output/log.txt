@@ -1,0 +1,6 @@
+WHITE:	SunPass Customer Service <customerservice@sunpass.com>:	SunPass Receipt
+EMPTY:	Epic Games  <fortnite@mail.epicgames.com>:	Fortnite - This Week's Parental Controls Playtime Summary
+FINE:	Anthropic <support+news@mail.anthropic.com>:	Artifacts are now generally available
+SPAM:	"Worst Creamer" <support@kneesrelif.shop>:	Tingling feet? Never add this creamer to your coffee
+Total emails processed: 4
+Total  emails  moved to Junk folder: 1
