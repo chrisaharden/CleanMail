@@ -7,11 +7,13 @@
     "AIModel": "claude-3-opus-20240229",
     "whitelist": [
         "friend@example.com",
-        "coworker@company.com"
+        "coworker@company.com",
+        "*@trusteddomain.com"
     ],
     "blacklist": [
         "spammer@spam.com",
-        "unwanted@advertiser.com"
+        "unwanted@advertiser.com",
+        "*@spammydomain.com"
     ],
     "OnlyGatherMetrics": true,
     "MetricsCSVFile": "metrics.csv",

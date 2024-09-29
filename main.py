@@ -6,6 +6,7 @@ import requests
 import time
 import csv
 import sys
+import re
 
 def read_config(file_path):
     with open(file_path, 'r') as file:
@@ -76,6 +77,20 @@ def is_spam(email_content, api_key, model):
             print(f"Unexpected status code: {response.status_code}")
         return False
 
+def is_in_list(email, list_entries):
+    email_parts = email.split('@')
+    if len(email_parts) != 2:
+        return False
+    local_part, domain = email_parts
+
+    for entry in list_entries:
+        if entry.startswith('*@'):
+            if domain.lower() == entry[2:].lower():
+                return True
+        elif entry.lower() == email.lower():
+            return True
+    return False
+
 def process_emails(config, api_key):
     mail = imaplib.IMAP4_SSL(config['imap_server'], config['imap_port'])
     spam_count = 0
@@ -107,16 +122,21 @@ def process_emails(config, api_key):
                     email_message = email.message_from_bytes(response[1])
                     subject = decode_email_subject(email_message["Subject"])
                     sender = email_message["From"]
+                    sender_email = re.search(r'<(.+?)>', sender)
+                    if sender_email:
+                        sender_email = sender_email.group(1)
+                    else:
+                        sender_email = sender
                     
                     status = ""
                     
                     # Check whitelist
-                    if any(addr in sender for addr in whitelist):
+                    if is_in_list(sender_email, whitelist):
                         print(f"WHITE:\t{sender}:\t{subject}")
                         status = "WHITE"
                         
                     # Check blacklist
-                    elif any(addr in sender for addr in blacklist):
+                    elif is_in_list(sender_email, blacklist):
                         print(f"BLACK:\t{sender}:\t{subject}")
                         status = "BLACK"
                         if not only_gather_metrics:
