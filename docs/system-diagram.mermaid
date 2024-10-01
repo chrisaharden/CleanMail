@@ -1,7 +1,8 @@
 graph TD
     A[Email Server] -->|IMAP| B(main.py)
     B -->|Read| C[config.json]
-    B -->|API Call| D[Claude AI Model]
+    B -->|Check| S[Traditional AI]
+    S -->|If not caught| D[Claude AI Model]
     B -->|Write| E[./output/metrics.csv]
     B -->|Move Spam| F[Junk Folder]
     
@@ -28,6 +29,12 @@ graph TD
         Q[Claude 3 Opus]
         R[Claude 3.5 Sonnet]
     end
+
+    subgraph "Traditional AI"
+        S
+        T[Blacklist]
+        U[Whitelist]
+    end
     
     style A fill:#e1f5fe,stroke:#01579b,stroke-width:2px
     style B fill:#fff9c4,stroke:#f9a825,stroke-width:2px
@@ -41,5 +48,8 @@ graph TD
     style J fill:#fce4ec,stroke:#880e4f,stroke-width:2px
     style K fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
     style L fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    style S fill:#ffecb3,stroke:#ff6f00,stroke-width:2px
+    style T fill:#ffecb3,stroke:#ff6f00,stroke-width:2px
+    style U fill:#ffecb3,stroke:#ff6f00,stroke-width:2px
     
     classDef default fill:#ffffff,stroke:#333,stroke-width:1px;

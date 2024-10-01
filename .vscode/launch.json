@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "main.py",
             "console": "integratedTerminal",
-            "args": [ "config.json"    
+            "args": [ "config-3.5-Sonnet.json"    
             ]
         }
     ]
