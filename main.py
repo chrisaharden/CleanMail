@@ -7,6 +7,7 @@ import time
 import csv
 import sys
 import re
+import os
 
 def read_config(file_path):
     with open(file_path, 'r') as file:
@@ -91,6 +92,17 @@ def is_in_list(email, list_entries):
             return True
     return False
 
+def load_last_processed_email():
+    try:
+        with open('last_processed_email.txt', 'r') as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return None
+
+def save_lprocessed_email_marker(email_id):
+    with open('last_processed_email.txt', 'w') as f:
+        f.write(email_id)
+
 def process_emails(config, api_key):
     mail = imaplib.IMAP4_SSL(config['imap_server'], config['imap_port'])
     spam_count = 0
@@ -98,8 +110,9 @@ def process_emails(config, api_key):
     blacklist = config.get('blacklist', [])
     only_gather_metrics = config.get('OnlyGatherMetrics', False)
     csv_file = "./output/" + config.get('MetricsCSVFile', 'metrics.csv')
-    max_email_count = config.get('MetricsMaxEmailCount', float('inf'))
     model = config.get('AIModel', 'claude-3-opus-20240229')
+    max_emails_before_stopping = config.get('MaxEmailsBeforeStopping', 50)
+    starting_email_message_id:str = None
     
     metrics = []
     processed_email_count = 0
@@ -109,10 +122,14 @@ def process_emails(config, api_key):
         mail.select('INBOX')
         
         _, message_numbers = mail.search(None, 'ALL')
+        message_numbers = message_numbers[0].split()
+        message_numbers.reverse()  # Process from newest to oldest
         
-        for num in message_numbers[0].split():
-            if processed_email_count >= max_email_count:
-                print(f"Reached maximum email count of {max_email_count}. Stopping processing.")
+        last_processed_email = load_last_processed_email()
+        
+        for num in message_numbers:
+            if processed_email_count >= max_emails_before_stopping:
+                print(f"Reached maximum email count of {max_emails_before_stopping}. Stopping processing.")
                 break
             
             _, msg = mail.fetch(num, '(RFC822)')
@@ -120,6 +137,12 @@ def process_emails(config, api_key):
             for response in msg:
                 if isinstance(response, tuple):
                     email_message = email.message_from_bytes(response[1])
+                    message_id = email_message['Message-ID']
+                    
+                    if message_id != None and message_id == last_processed_email:
+                        print(f"Found last processed email. Stopping.")
+                        return spam_count, processed_email_count
+                    
                     subject = decode_email_subject(email_message["Subject"])
                     sender = email_message["From"]
                     sender_email = re.search(r'<(.+?)>', sender)
@@ -132,12 +155,12 @@ def process_emails(config, api_key):
                     
                     # Check whitelist
                     if is_in_list(sender_email, whitelist):
-                        print(f"WHITE:\t{sender}:\t{subject}")
+                        print(f"WHITE:\t{sender}:\t{subject}\t{message_id}")
                         status = "WHITE"
                         
                     # Check blacklist
                     elif is_in_list(sender_email, blacklist):
-                        print(f"BLACK:\t{sender}:\t{subject}")
+                        print(f"BLACK:\t{sender}:\t{subject}\t{message_id}")
                         status = "BLACK"
                         if not only_gather_metrics:
                             try:
@@ -152,7 +175,7 @@ def process_emails(config, api_key):
                         
                         if content:
                             if is_spam(content, api_key, model):
-                                print(f"SPAM:\t{sender}:\t{subject}")
+                                print(f"SPAM:\t{sender}:\t{subject}\t{message_id}")
                                 status = "SPAM"
                                 if not only_gather_metrics:
                                     try:
@@ -162,25 +185,33 @@ def process_emails(config, api_key):
                                         print(f"Error moving email to Junk: {str(e)}")
                                 spam_count += 1
                             else:
-                                print(f"FINE:\t{sender}:\t{subject}")
+                                print(f"FINE:\t{sender}:\t{subject}\t{message_id}")
                                 status = "FINE"
                         else:
-                            print(f"EMPTY:\t{sender}:\t{subject}")
+                            print(f"EMPTY:\t{sender}:\t{subject}\t{message_id}")
                             status = "EMPTY"
                     
                     if only_gather_metrics:
                         metrics.append([status, sender, subject])
                     
                     processed_email_count += 1
+
+                    if processed_email_count == 1:
+                        starting_email_message_id = message_id
+                                        
                     #time.sleep(1/10) #throttle in seconds. 1/10 says process a max of 10 emails/second
             
-            if processed_email_count >= max_email_count:
-                print(f"DONE:\t{max_email_count} email processed.")
+            if processed_email_count >= max_emails_before_stopping:
+                print(f"DONE:\t{max_emails_before_stopping} email processed.")
                 break
         
         if not only_gather_metrics:
             mail.expunge()
-    
+        
+        #If we've made it this far, we can save the ID.  If we failed on an exception, we won't save the ID.
+        #This causes the code to start over processing from previously saved index.
+        save_lprocessed_email_marker(starting_email_message_id)
+
     except Exception as e:
         print(f"An error occurred: {str(e)}")
     finally:

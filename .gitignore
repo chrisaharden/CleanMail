@@ -170,3 +170,5 @@ config-3.0-Opus.json
 config-3.5-Sonnet.json
 output/MyTestingData/
 docs/outlines for each video.txt
+CleanMail - MicrosoftNightlyTaskSchedulerSettings.xml
+last_processed_email.txt
