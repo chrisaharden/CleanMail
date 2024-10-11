@@ -1,4 +1,5 @@
 @echo off
+chcp 65001
 REM Copy the config.json file, add the specific model you want, and process nightly like this.
 REM Append all console output to ./output/log.txt with a timestamp
 if not exist ".\output" mkdir ".\output"

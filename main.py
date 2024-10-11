@@ -8,6 +8,8 @@ import csv
 import sys
 import re
 import os
+import unicodedata
+import socket
 
 def read_config(file_path):
     with open(file_path, 'r') as file:
@@ -16,7 +18,7 @@ def read_config(file_path):
 def decode_email_subject(subject):
     decoded, encoding = decode_header(subject)[0]
     if isinstance(decoded, bytes):
-        decoded = decoded.decode(encoding or 'utf-8')
+        decoded = decoded.decode(encoding or 'utf-8', errors='replace')
     return decoded
 
 def get_email_content(email_message):
@@ -25,13 +27,13 @@ def get_email_content(email_message):
         for part in email_message.walk():
             if part.get_content_type() == "text/plain":
                 try:
-                    part_content = part.get_payload(decode=True).decode()
+                    part_content = part.get_payload(decode=True).decode(errors='replace')
                 except:
                     part_content = part.get_payload()
                 content += part_content
     else:
         try:
-            content = email_message.get_payload(decode=True).decode()
+            content = email_message.get_payload(decode=True).decode(errors='replace')
         except:
             content = email_message.get_payload()
     
@@ -103,8 +105,33 @@ def save_lprocessed_email_marker(email_id):
     with open('last_processed_email.txt', 'w') as f:
         f.write(email_id)
 
+def strip_control_characters(s):
+    return "".join(ch for ch in s if unicodedata.category(ch)[0] != "C")
+
+def sanitize_string(s):
+    # Replace problematic characters with their names or a placeholder
+    return ''.join(c if ord(c) < 65536 else f'[U+{ord(c):X}]' for c in s)
+
+def check_imap_server(server, port, timeout=5):
+    try:
+        socket.setdefaulttimeout(timeout)
+        socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect((server, port))
+        return True
+    except socket.error as e:
+        return False
+
 def process_emails(config, api_key):
-    mail = imaplib.IMAP4_SSL(config['imap_server'], config['imap_port'])
+    imap_server = config['imap_server']
+    imap_port = config['imap_port']
+    
+    # Check IMAP server availability
+    if not check_imap_server(imap_server, imap_port):
+        print(f"Error: Unable to connect to the IMAP server ({imap_server}:{imap_port}).")
+        print("Please check your internet connection and verify the IMAP server details.")
+        print("If the problem persists, contact your email provider or system administrator.")
+        return 0, 0
+
+    mail = imaplib.IMAP4_SSL(imap_server, imap_port)
     spam_count = 0
     whitelist = config.get('whitelist', [])
     blacklist = config.get('blacklist', [])
@@ -132,74 +159,79 @@ def process_emails(config, api_key):
                 print(f"Reached maximum email count of {max_emails_before_stopping}. Stopping processing.")
                 break
             
-            _, msg = mail.fetch(num, '(RFC822)')
-            
-            for response in msg:
-                if isinstance(response, tuple):
-                    email_message = email.message_from_bytes(response[1])
-                    message_id = email_message['Message-ID']
-                    
-                    if message_id != None and message_id == last_processed_email:
-                        print(f"Found last processed email. Stopping.")
-                        return spam_count, processed_email_count
-                    
-                    subject = decode_email_subject(email_message["Subject"])
-                    sender = email_message["From"]
-                    sender_email = re.search(r'<(.+?)>', sender)
-                    if sender_email:
-                        sender_email = sender_email.group(1)
-                    else:
-                        sender_email = sender
-                    
-                    status = ""
-                    
-                    # Check whitelist
-                    if is_in_list(sender_email, whitelist):
-                        print(f"WHITE:\t{sender}:\t{subject}\t{message_id}")
-                        status = "WHITE"
+            try:
+                _, msg = mail.fetch(num, '(RFC822)')
+                
+                for response in msg:
+                    if isinstance(response, tuple):
+                        email_message = email.message_from_bytes(response[1])
+                        message_id = email_message['Message-ID']
                         
-                    # Check blacklist
-                    elif is_in_list(sender_email, blacklist):
-                        print(f"BLACK:\t{sender}:\t{subject}\t{message_id}")
-                        status = "BLACK"
-                        if not only_gather_metrics:
-                            try:
-                                mail.copy(num, 'Junk')
-                                mail.store(num, '+FLAGS', '\\Deleted')
-                            except Exception as e:
-                                print(f"Error moving email to Junk: {str(e)}")
-                        spam_count += 1
-                    
-                    else:
-                        content = get_email_content(email_message)
+                        if message_id != None and message_id == last_processed_email:
+                            print(f"Found last processed email. Stopping.")
+                            return spam_count, processed_email_count
                         
-                        if content:
-                            if is_spam(content, api_key, model):
-                                print(f"SPAM:\t{sender}:\t{subject}\t{message_id}")
-                                status = "SPAM"
-                                if not only_gather_metrics:
-                                    try:
-                                        mail.copy(num, 'Junk')
-                                        mail.store(num, '+FLAGS', '\\Deleted')
-                                    except Exception as e:
-                                        print(f"Error moving email to Junk: {str(e)}")
-                                spam_count += 1
-                            else:
-                                print(f"FINE:\t{sender}:\t{subject}\t{message_id}")
-                                status = "FINE"
+                        subject = decode_email_subject(email_message["Subject"])
+                        subject = sanitize_string(strip_control_characters(subject))
+                        sender = sanitize_string(strip_control_characters(email_message["From"]))
+                        sender_email = re.search(r'<(.+?)>', sender)
+                        if sender_email:
+                            sender_email = sender_email.group(1)
                         else:
-                            print(f"EMPTY:\t{sender}:\t{subject}\t{message_id}")
-                            status = "EMPTY"
-                    
-                    if only_gather_metrics:
-                        metrics.append([status, sender, subject])
-                    
-                    processed_email_count += 1
+                            sender_email = sender
+                        
+                        status = ""
+                        
+                        # Check whitelist
+                        if is_in_list(sender_email, whitelist):
+                            print(f"WHITE:\t{sender}:\t{subject}\t{message_id}")
+                            status = "WHITE"
+                            
+                        # Check blacklist
+                        elif is_in_list(sender_email, blacklist):
+                            print(f"BLACK:\t{sender}:\t{subject}\t{message_id}")
+                            status = "BLACK"
+                            if not only_gather_metrics:
+                                try:
+                                    mail.copy(num, 'Junk')
+                                    mail.store(num, '+FLAGS', '\\Deleted')
+                                except Exception as e:
+                                    print(f"Error moving email to Junk: {str(e)}")
+                            spam_count += 1
+                        
+                        else:
+                            content = get_email_content(email_message)
+                            
+                            if content:
+                                if is_spam(content, api_key, model):
+                                    print(f"SPAM:\t{sender}:\t{subject}\t{message_id}")
+                                    status = "SPAM"
+                                    if not only_gather_metrics:
+                                        try:
+                                            mail.copy(num, 'Junk')
+                                            mail.store(num, '+FLAGS', '\\Deleted')
+                                        except Exception as e:
+                                            print(f"Error moving email to Junk: {str(e)}")
+                                    spam_count += 1
+                                else:
+                                    print(f"FINE:\t{sender}:\t{subject}\t{message_id}")
+                                    status = "FINE"
+                            else:
+                                print(f"EMPTY:\t{sender}:\t{subject}\t{message_id}")
+                                status = "EMPTY"
+                        
+                        if only_gather_metrics:
+                            metrics.append([status, sender, subject])
+                        
+                        processed_email_count += 1
 
-                    if processed_email_count == 1:
-                        starting_email_message_id = message_id
-                                        
-                    #time.sleep(1/10) #throttle in seconds. 1/10 says process a max of 10 emails/second
+                        if processed_email_count == 1:
+                            starting_email_message_id = message_id
+                                            
+                        #time.sleep(1/10) #throttle in seconds. 1/10 says process a max of 10 emails/second
+            except Exception as e:
+                print(f"Error processing email: {str(e)}")
+                continue  # Skip this email and move to the next one
             
             if processed_email_count >= max_emails_before_stopping:
                 print(f"DONE:\t{max_emails_before_stopping} email processed.")
@@ -212,11 +244,18 @@ def process_emails(config, api_key):
         #This causes the code to start over processing from previously saved index.
         save_lprocessed_email_marker(starting_email_message_id)
 
+    except imaplib.IMAP4.error as e:
+        print(f"IMAP error occurred: {str(e)}")
+        print("This could be due to incorrect login credentials or server issues.")
+        print("Please check your email address and password in the config file.")
     except Exception as e:
         print(f"An error occurred: {str(e)}")
     finally:
-        mail.close()
-        mail.logout()
+        try:
+            mail.close()
+            mail.logout()
+        except:
+            pass  # Ignore errors during logout if connection was never established
     
     if only_gather_metrics and metrics:
         with open(csv_file, 'w', newline='', encoding='utf-8') as file:
