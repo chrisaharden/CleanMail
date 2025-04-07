@@ -17,5 +17,6 @@
         "*@spammydomain.com"
     ],
     "OnlyGatherMetrics": true,
-    "MetricsCSVFile": "metrics.csv"
+    "MetricsCSVFile": "metrics.csv",
+    "LogFile": "log.txt"
 }
