@@ -1,7 +1,6 @@
 @echo off
 chcp 65001
-REM Copy the config.json file, add the specific model you want, and process nightly like this.
-REM Get log file name from config and append all console output to it with a timestamp
+REM Test script to verify log file configuration works
 
 if not exist ".\output" mkdir ".\output"
 
@@ -15,5 +14,7 @@ echo Using log file: .\output\%LOG_FILE%
 echo. >> ".\output\%LOG_FILE%"
 echo %date% %time% >> ".\output\%LOG_FILE%"
 echo ------------------- >> ".\output\%LOG_FILE%"
-python main.py config-3.0-Haiku.json >> ".\output\%LOG_FILE%" 2>&1
+echo This is a test entry to verify the log file configuration works. >> ".\output\%LOG_FILE%"
 echo ------------------- >> ".\output\%LOG_FILE%"
+
+echo Test completed. Check .\output\%LOG_FILE% to verify the log entry.
