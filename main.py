@@ -158,7 +158,7 @@ def process_emails(config, api_key):
     
     metrics = []
     processed_email_count = 0
-    first_processed_email_id = None  # Track the first (newest) email processed in this run
+    first_non_spam_email_id = None  # Track the first (newest) NON-SPAM email processed
     
     try:
         mail.login(email_address, config['password'])
@@ -201,6 +201,7 @@ def process_emails(config, api_key):
                             sender_email = sender
                         
                         status = ""
+                        is_spam_email = False  # Track if this email is spam
                         
                         # Check whitelist
                         if is_in_list(sender_email, whitelist):
@@ -211,6 +212,7 @@ def process_emails(config, api_key):
                         elif is_in_list(sender_email, blacklist):
                             print(f"BLACK:\t{sender}:\t{subject}\t{message_id}")
                             status = "BLACK"
+                            is_spam_email = True  # This is spam
                             if not only_gather_metrics:
                                 try:
                                     mail.copy(num, 'Junk')
@@ -226,6 +228,7 @@ def process_emails(config, api_key):
                                 if is_spam(content, api_key, model):
                                     print(f"SPAM:\t{sender}:\t{subject}\t{message_id}")
                                     status = "SPAM"
+                                    is_spam_email = True  # This is spam
                                     if not only_gather_metrics:
                                         try:
                                             mail.copy(num, 'Junk')
@@ -245,10 +248,12 @@ def process_emails(config, api_key):
                         
                         processed_email_count += 1
                         
-                        # CORRECTED LOGIC: Save the FIRST (newest) email processed
-                        # This is the email we want to stop at next time
-                        if processed_email_count == 1:
-                            first_processed_email_id = message_id
+                        # FIXED BUG: Save the first NON-SPAM email processed
+                        # Spam emails (BLACK and SPAM) get deleted, so we can't find them next time
+                        # Save the first non-spam email instead
+                        if first_non_spam_email_id is None and not is_spam_email:
+                            first_non_spam_email_id = message_id
+                            print(f"DEBUG: Saving first non-spam email: {message_id}")
                                             
                         #time.sleep(1/10) #throttle in seconds. 1/10 says process a max of 10 emails/second
             except Exception as e:
@@ -262,11 +267,14 @@ def process_emails(config, api_key):
         if not only_gather_metrics:
             mail.expunge()
         
-        # CORRECTED: Save the FIRST email processed (newest email)
-        # This ensures next run stops when it encounters this email
-        if first_processed_email_id and processed_email_count > 0:
-            save_last_processed_email_marker(email_address, first_processed_email_id)
+        # FIXED: Save the first NON-SPAM email processed
+        # This ensures next run stops when it encounters this email (which won't be deleted)
+        if first_non_spam_email_id and processed_email_count > 0:
+            save_last_processed_email_marker(email_address, first_non_spam_email_id)
             print(f"Successfully processed {processed_email_count} new emails for {email_address}")
+        elif processed_email_count > 0:
+            print(f"WARNING: All {processed_email_count} emails were spam - no tracking marker saved!")
+            print("Next run will reprocess these emails.")
         else:
             print(f"No new emails to process for {email_address}")
 
