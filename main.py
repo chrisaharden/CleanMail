@@ -10,6 +10,7 @@ import re
 import os
 import unicodedata
 import socket
+from datetime import datetime
 
 def read_config(file_path):
     with open(file_path, 'r') as file:
@@ -94,16 +95,30 @@ def is_in_list(email, list_entries):
             return True
     return False
 
-def load_last_processed_email():
+def get_tracking_filename(email_address):
+    """Generate a unique tracking filename for each email account"""
+    safe_email = email_address.replace('@', '_at_').replace('.', '_')
+    return f'last_processed_email_{safe_email}.txt'
+
+def load_last_processed_email(email_address):
+    """Load the last processed email ID for a specific account"""
+    tracking_file = get_tracking_filename(email_address)
     try:
-        with open('last_processed_email.txt', 'r') as f:
+        with open(tracking_file, 'r') as f:
             return f.read().strip()
     except FileNotFoundError:
+        print(f"No tracking file found for {email_address}. Starting fresh.")
         return None
 
-def save_lprocessed_email_marker(email_id):
-    with open('last_processed_email.txt', 'w') as f:
-        f.write(email_id)
+def save_last_processed_email_marker(email_address, email_id):
+    """Save the last processed email ID for a specific account"""
+    tracking_file = get_tracking_filename(email_address)
+    try:
+        with open(tracking_file, 'w') as f:
+            f.write(email_id)
+        print(f"Saved last processed email ID for {email_address}: {email_id}")
+    except Exception as e:
+        print(f"Error saving tracking file for {email_address}: {str(e)}")
 
 def strip_control_characters(s):
     return "".join(ch for ch in s if unicodedata.category(ch)[0] != "C")
@@ -123,6 +138,7 @@ def check_imap_server(server, port, timeout=5):
 def process_emails(config, api_key):
     imap_server = config['imap_server']
     imap_port = config['imap_port']
+    email_address = config['email_address']
     
     # Check IMAP server availability
     if not check_imap_server(imap_server, imap_port):
@@ -139,20 +155,22 @@ def process_emails(config, api_key):
     csv_file = "./output/" + config.get('MetricsCSVFile', 'metrics.csv')
     model = config.get('AIModel', 'claude-3-opus-20240229')
     max_emails_before_stopping = config.get('MaxEmailsBeforeStopping', 50)
-    starting_email_message_id:str = None
     
     metrics = []
     processed_email_count = 0
+    first_processed_email_id = None  # Track the first (newest) email processed in this run
     
     try:
-        mail.login(config['email_address'], config['password'])
+        mail.login(email_address, config['password'])
         mail.select('INBOX')
         
         _, message_numbers = mail.search(None, 'ALL')
         message_numbers = message_numbers[0].split()
         message_numbers.reverse()  # Process from newest to oldest
         
-        last_processed_email = load_last_processed_email()
+        # Load the last processed email for THIS specific account
+        last_processed_email = load_last_processed_email(email_address)
+        print(f"Last processed email for {email_address}: {last_processed_email}")
         
         for num in message_numbers:
             if processed_email_count >= max_emails_before_stopping:
@@ -167,8 +185,10 @@ def process_emails(config, api_key):
                         email_message = email.message_from_bytes(response[1])
                         message_id = email_message['Message-ID']
                         
+                        # If we found the last processed email, stop here
                         if message_id != None and message_id == last_processed_email:
-                            print(f"Found last processed email. Stopping.")
+                            print(f"Found last processed email for {email_address}. Stopping.")
+                            # Don't save anything here - we haven't processed any new emails
                             return spam_count, processed_email_count
                         
                         subject = decode_email_subject(email_message["Subject"])
@@ -224,9 +244,11 @@ def process_emails(config, api_key):
                             metrics.append([status, sender, subject])
                         
                         processed_email_count += 1
-
+                        
+                        # CORRECTED LOGIC: Save the FIRST (newest) email processed
+                        # This is the email we want to stop at next time
                         if processed_email_count == 1:
-                            starting_email_message_id = message_id
+                            first_processed_email_id = message_id
                                             
                         #time.sleep(1/10) #throttle in seconds. 1/10 says process a max of 10 emails/second
             except Exception as e:
@@ -234,15 +256,19 @@ def process_emails(config, api_key):
                 continue  # Skip this email and move to the next one
             
             if processed_email_count >= max_emails_before_stopping:
-                print(f"DONE:\t{max_emails_before_stopping} email processed.")
+                print(f"DONE:\t{max_emails_before_stopping} emails processed.")
                 break
         
         if not only_gather_metrics:
             mail.expunge()
         
-        #If we've made it this far, we can save the ID.  If we failed on an exception, we won't save the ID.
-        #This causes the code to start over processing from previously saved index.
-        save_lprocessed_email_marker(starting_email_message_id)
+        # CORRECTED: Save the FIRST email processed (newest email)
+        # This ensures next run stops when it encounters this email
+        if first_processed_email_id and processed_email_count > 0:
+            save_last_processed_email_marker(email_address, first_processed_email_id)
+            print(f"Successfully processed {processed_email_count} new emails for {email_address}")
+        else:
+            print(f"No new emails to process for {email_address}")
 
     except imaplib.IMAP4.error as e:
         print(f"IMAP error occurred: {str(e)}")
