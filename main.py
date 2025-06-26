@@ -159,6 +159,7 @@ def process_emails(config, api_key):
     metrics = []
     processed_email_count = 0
     first_non_spam_email_id = None  # Track the first (newest) NON-SPAM email processed
+    found_last_processed = False  # Flag to break out of nested loops
     
     try:
         mail.login(email_address, config['password'])
@@ -177,6 +178,9 @@ def process_emails(config, api_key):
                 print(f"Reached maximum email count of {max_emails_before_stopping}. Stopping processing.")
                 break
             
+            if found_last_processed:  # Break out of outer loop if we found the last processed email
+                break
+            
             try:
                 _, msg = mail.fetch(num, '(RFC822)')
                 
@@ -188,10 +192,11 @@ def process_emails(config, api_key):
                         # If we found the last processed email, stop here
                         if message_id != None and message_id == last_processed_email:
                             print(f"Found last processed email for {email_address}. Stopping.")
-                            # Don't save anything here - we haven't processed any new emails
-                            return spam_count, processed_email_count
+                            found_last_processed = True  # Set flag to break out of outer loop
+                            break  # Break out of inner loop
                         
                         subject = decode_email_subject(email_message["Subject"])
+                        print(f"Subject: {subject}")
                         subject = sanitize_string(strip_control_characters(subject))
                         sender = sanitize_string(strip_control_characters(email_message["From"]))
                         sender_email = re.search(r'<(.+?)>', sender)
@@ -267,6 +272,9 @@ def process_emails(config, api_key):
         if not only_gather_metrics:
             mail.expunge()
         
+        # Check if we found the last processed email (no new emails to process)
+        #if found_last_processed and processed_email_count == 0:
+        #    print(f"No new emails to process for {email_address}")
         # FIXED: Save the first NON-SPAM email processed
         # This ensures next run stops when it encounters this email (which won't be deleted)
         if first_non_spam_email_id and processed_email_count > 0:
