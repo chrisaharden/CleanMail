@@ -171,4 +171,8 @@ config-3.5-Sonnet.json
 output/MyTestingData/
 docs/outlines for each video.txt
 CleanMail - MicrosoftNightlyTaskSchedulerSettings.xml
-last_processed_email.txt
+last_processed_email*.txt  
+output/log-*.txt
+RunCleanFromStartupFolder.cmd
+cleanmailnightly.cmd
+
