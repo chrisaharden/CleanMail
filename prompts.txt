@@ -2,3 +2,9 @@ This is a python spam filter agent that runs in the command line, processing IMA
 AFter reviewing emails against a whitelist and blacklist, it contacts an API with an LLM for further reviews on emails that matched either list.
 Please add a "True"/"False" option in the command files that "SkipAI".  When true, the script just writes the same info as usual about email, but it prefixes the line with "SKIPPED:"
 
+
+
+This is a python spam filter agent that runs in the command line, processing IMAP emails based on config files.
+After reviewing emails against a whitelist and blacklist, it contacts an API with an LLM for further reviews on emails that matched either list.
+It is failing to filter out a bunch of fishing emails where "0maha Steak" is in the subject line and at the beginning of the emails, but Omahasteaks are not in the url.domain.
+What updates do you suggest making to help fix this?  The same is true for some "Ace Hardware" fishing email.

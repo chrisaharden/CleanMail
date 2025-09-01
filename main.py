@@ -95,6 +95,21 @@ def is_in_list(email, list_entries):
             return True
     return False
 
+def contains_phishing_patterns(subject, sender, phishing_patterns):
+    """Check if email contains known phishing patterns in subject or sender"""
+    if not phishing_patterns:
+        return False
+    
+    # Combine subject and sender for pattern matching
+    text_to_check = f"{subject} {sender}".lower()
+    
+    for pattern in phishing_patterns:
+        pattern_lower = pattern.lower()
+        if pattern_lower in text_to_check:
+            return True
+    
+    return False
+
 def get_tracking_filename(email_address):
     """Generate a unique tracking filename for each email account"""
     safe_email = email_address.replace('@', '_at_').replace('.', '_')
@@ -151,6 +166,7 @@ def process_emails(config, api_key):
     spam_count = 0
     whitelist = config.get('whitelist', [])
     blacklist = config.get('blacklist', [])
+    phishing_patterns = config.get('phishing_patterns', [])
     only_gather_metrics = config.get('OnlyGatherMetrics', False)
     skip_ai = config.get('SkipAI', False)
     csv_file = "./output/" + config.get('MetricsCSVFile', 'metrics.csv')
@@ -218,6 +234,19 @@ def process_emails(config, api_key):
                         elif is_in_list(sender_email, blacklist):
                             print(f"BLACK:\t{sender}:\t{subject}\t{message_id}")
                             status = "BLACK"
+                            is_spam_email = True  # This is spam
+                            if not only_gather_metrics:
+                                try:
+                                    mail.copy(num, 'Junk')
+                                    mail.store(num, '+FLAGS', '\\Deleted')
+                                except Exception as e:
+                                    print(f"Error moving email to Junk: {str(e)}")
+                            spam_count += 1
+                        
+                        # Check phishing patterns
+                        elif contains_phishing_patterns(subject, sender, phishing_patterns):
+                            print(f"PHISH:\t{sender}:\t{subject}\t{message_id}")
+                            status = "PHISH"
                             is_spam_email = True  # This is spam
                             if not only_gather_metrics:
                                 try:
