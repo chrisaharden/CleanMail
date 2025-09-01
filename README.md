@@ -9,6 +9,7 @@ This project implements an AI-powered email spam detection system using Claude m
 - IMAP email processing
 - Whitelist and blacklist filtering (including domain-level entries)
 - AI-powered spam detection using Claude models
+- SkipAI option to bypass AI processing for testing or debugging
 - Metrics gathering for performance analysis
 - Batch processing for comparing different AI models
 - Nightly automated email cleaning
@@ -45,6 +46,7 @@ This project implements an AI-powered email spam detection system using Claude m
    - Set `AIModel` to the appropriate model name (e.g., "claude-3-haiku-20240307")
    - Adjust `whitelist` and `blacklist` as needed
    - Set `OnlyGatherMetrics` to `true` for performance testing
+   - Set `SkipAI` to `true` to bypass AI processing (emails not in whitelist/blacklist will be logged with "SKIPPED:" prefix)
 
 ## Usage
 

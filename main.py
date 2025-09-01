@@ -152,6 +152,7 @@ def process_emails(config, api_key):
     whitelist = config.get('whitelist', [])
     blacklist = config.get('blacklist', [])
     only_gather_metrics = config.get('OnlyGatherMetrics', False)
+    skip_ai = config.get('SkipAI', False)
     csv_file = "./output/" + config.get('MetricsCSVFile', 'metrics.csv')
     model = config.get('AIModel', 'claude-3-opus-20240229')
     max_emails_before_stopping = config.get('MaxEmailsBeforeStopping', 50)
@@ -182,7 +183,7 @@ def process_emails(config, api_key):
                 break
             
             try:
-                _, msg = mail.fetch(num, '(RFC822)')
+                _, msg = mail.fetch(num, '(BODY.PEEK[])')
                 
                 for response in msg:
                     if isinstance(response, tuple):
@@ -230,20 +231,25 @@ def process_emails(config, api_key):
                             content = get_email_content(email_message)
                             
                             if content:
-                                if is_spam(content, api_key, model):
-                                    print(f"SPAM:\t{sender}:\t{subject}\t{message_id}")
-                                    status = "SPAM"
-                                    is_spam_email = True  # This is spam
-                                    if not only_gather_metrics:
-                                        try:
-                                            mail.copy(num, 'Junk')
-                                            mail.store(num, '+FLAGS', '\\Deleted')
-                                        except Exception as e:
-                                            print(f"Error moving email to Junk: {str(e)}")
-                                    spam_count += 1
+                                if skip_ai:
+                                    # When SkipAI is true, just log the email without AI processing
+                                    print(f"SKIPPED:\t{sender}:\t{subject}\t{message_id}")
+                                    status = "SKIPPED"
                                 else:
-                                    print(f"FINE:\t{sender}:\t{subject}\t{message_id}")
-                                    status = "FINE"
+                                    if is_spam(content, api_key, model):
+                                        print(f"SPAM:\t{sender}:\t{subject}\t{message_id}")
+                                        status = "SPAM"
+                                        is_spam_email = True  # This is spam
+                                        if not only_gather_metrics:
+                                            try:
+                                                mail.copy(num, 'Junk')
+                                                mail.store(num, '+FLAGS', '\\Deleted')
+                                            except Exception as e:
+                                                print(f"Error moving email to Junk: {str(e)}")
+                                        spam_count += 1
+                                    else:
+                                        print(f"FINE:\t{sender}:\t{subject}\t{message_id}")
+                                        status = "FINE"
                             else:
                                 print(f"EMPTY:\t{sender}:\t{subject}\t{message_id}")
                                 status = "EMPTY"
