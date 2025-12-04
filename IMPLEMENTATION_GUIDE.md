@@ -86,9 +86,9 @@ echo Using log file: .\output\%LOG_FILE%
 
 echo. >> ".\output\%LOG_FILE%"
 echo %date% %time% >> ".\output\%LOG_FILE%"
-echo ------------------- >> ".\output\%LOG_FILE%"
+REM echo ------------------- >> ".\output\%LOG_FILE%"
 python main.py config-3.0-Haiku.json >> ".\output\%LOG_FILE%" 2>&1
-echo ------------------- >> ".\output\%LOG_FILE%"
+REM echo ------------------- >> ".\output\%LOG_FILE%"
 
 REM Show tracking status after processing
 echo Tracking status after processing:
