@@ -49,14 +49,15 @@ def is_spam(email_content, api_key, model):
         "anthropic-version": "2023-06-01"
     }
 
-    # Limit email content to 500 characters
-    limited_content = email_content[:500]
+    # Limit email content to 3000 characters to capture more meaningful content
+    # This helps ensure we get past HTML headers and metadata to the actual message
+    limited_content = email_content[:3000]
 
     data = {
         "model": model,
         "max_tokens": 1000,
         "messages": [
-            {"role": "user", "content": f"Is the following email spam? Only respond with 'yes' or 'no'. Here's the first 500 characters of the email: {limited_content}"}
+            {"role": "user", "content": f"Is the following email spam? Only respond with 'yes' or 'no'. Email content: {limited_content}"}
         ]
     }
 
@@ -213,7 +214,7 @@ def process_emails(config, api_key):
                             break  # Break out of inner loop
                         
                         subject = decode_email_subject(email_message["Subject"])
-                        print(f"Subject: {subject}")
+                        # print(f"Subject: {subject}")
                         subject = sanitize_string(strip_control_characters(subject))
                         sender = sanitize_string(strip_control_characters(email_message["From"]))
                         sender_email = re.search(r'<(.+?)>', sender)
@@ -237,10 +238,12 @@ def process_emails(config, api_key):
                             is_spam_email = True  # This is spam
                             if not only_gather_metrics:
                                 try:
-                                    mail.copy(num, 'Junk')
+                                    #print(f"DEBUG: Attempting to copy email {num} to INBOX.Trash folder...")
+                                    result = mail.copy(num, 'INBOX.Trash')
+                                    #print(f"DEBUG: Copy result: {result}")
                                     mail.store(num, '+FLAGS', '\\Deleted')
                                 except Exception as e:
-                                    print(f"Error moving email to Junk: {str(e)}")
+                                    print(f"Error moving email to Trash: {str(e)}")
                             spam_count += 1
                         
                         # Check phishing patterns
@@ -250,10 +253,12 @@ def process_emails(config, api_key):
                             is_spam_email = True  # This is spam
                             if not only_gather_metrics:
                                 try:
-                                    mail.copy(num, 'Junk')
+                                    #print(f"DEBUG: Attempting to copy email {num} to INBOX.Trash folder...")
+                                    result = mail.copy(num, 'INBOX.Trash')
+                                    #print(f"DEBUG: Copy result: {result}")
                                     mail.store(num, '+FLAGS', '\\Deleted')
                                 except Exception as e:
-                                    print(f"Error moving email to Junk: {str(e)}")
+                                    print(f"Error moving email to Trash: {str(e)}")
                             spam_count += 1
                         
                         else:
@@ -271,10 +276,12 @@ def process_emails(config, api_key):
                                         is_spam_email = True  # This is spam
                                         if not only_gather_metrics:
                                             try:
-                                                mail.copy(num, 'Junk')
+                                                #print(f"DEBUG: Attempting to copy email {num} to INBOX.Trash folder...")
+                                                result = mail.copy(num, 'INBOX.Trash')
+                                                #print(f"DEBUG: Copy result: {result}")
                                                 mail.store(num, '+FLAGS', '\\Deleted')
                                             except Exception as e:
-                                                print(f"Error moving email to Junk: {str(e)}")
+                                                print(f"Error moving email to Trash: {str(e)}")
                                         spam_count += 1
                                     else:
                                         print(f"FINE:\t{sender}:\t{subject}\t{message_id}")
@@ -303,9 +310,10 @@ def process_emails(config, api_key):
             if processed_email_count >= max_emails_before_stopping:
                 print(f"DONE:\t{max_emails_before_stopping} emails processed.")
                 break
-        
-        if not only_gather_metrics:
-            mail.expunge()
+        #HARDEN - 11/19 - turning off expunge to address aggressively deleting emails
+        #if not only_gather_metrics:
+        #     mail.expunge()
+        print(f"Skipping expunge.")
         
         # Check if we found the last processed email (no new emails to process)
         #if found_last_processed and processed_email_count == 0:
@@ -365,4 +373,4 @@ if __name__ == "__main__":
 
     total_spam, total_processed = process_emails(config, api_key)
     print(f"Total emails processed: {total_processed}")
-    print(f"Total {'potential' if config.get('OnlyGatherMetrics', False) else ''} emails {'that would be' if config.get('OnlyGatherMetrics', False) else ''} moved to Junk folder: {total_spam}")
+    print(f"Total {'potential' if config.get('OnlyGatherMetrics', False) else ''} emails {'that would be' if config.get('OnlyGatherMetrics', False) else ''} moved to Trash folder: {total_spam}")
